@@ -30,5 +30,6 @@
                :category-hierarchies)
   :serial t
   :components ((:file "class-and-macros")
-               (:file "semantic-frames"))
+               (:file "semantic-frames")
+               (:file  "fcg-expand"))
   :description "Library of semantic frame  extractors for hybrid FCG-grammars.")
