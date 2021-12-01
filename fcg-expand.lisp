@@ -19,9 +19,9 @@
 (defmethod fcg-expand ((type (eql :sem-frame))
                        &key value source bindings merge? &allow-other-keys)
   (declare (ignore type source bindings merge?))
-  (let* ((frame-type (first value))
+  (let* ((frame-type (if (eql '== (first value)) (first (second value)) (first value)))
          (frame-elements (get-frame-elements frame-type))
-         (frame-fillers (rest value))
+         (frame-fillers (if (eql '== (first value)) (rest (second value)) (rest value)))
          (features `((frame-type ,frame-type)
                      ,@(cond
                         ;; 1/ The user has defined some frame elements manually:
@@ -41,15 +41,31 @@
                                collect (if filler (list fe filler) (list fe (make-var 'filler)))))))))
     (cons '==1 features)))
 
-(export '(activate-frame-extractor sem-frame))
+(export '(activate-frame-extractor sem-frame def-frame-cxn))
 
 (defun activate-frame-extractor (&key (cxn-inventory *fcg-constructions*)
                                       (frame-feature 'sem-frame))
   "Helper function to ensure that a construction inventory is compatible with the frame extractor."
   (set-configuration cxn-inventory :frame-feature frame-feature)
-  (let ((new-type-def (list frame-feature 'sequence :sem-frame))
+  (let ((new-type-def (list frame-feature 'set-of-features :sem-frame)) ;'sequence :sem-frame))
         (old-type-def (assoc frame-feature (feature-types cxn-inventory))))
     (if old-type-def
       (setf (feature-types cxn-inventory)
             (substitute new-type-def old-type-def (feature-types cxn-inventory) :test #'equal))
       (push new-type-def (feature-types cxn-inventory)))))
+
+
+;; Helper macro
+(defmacro  def-frame-cxn (cxn-name fs &key (cxn-inventory '*fcg-constructions*)
+                                   (cxn-set 'cxn) (score 0.5)
+                                   (feature-types nil) (attributes nil)
+                                   (disable-automatic-footprints nil) 
+                                   (description nil))
+  `(def-fcg-cxn ,cxn-name ,fs
+                :cxn-inventory ,cxn-inventory
+                :cxn-set ,cxn-set
+                :score ,score
+                :feature-types ,(cons (list 'sem-frame 'sequence :sem-frame) feature-types)
+                :attributes ,attributes
+                :disable-automatic-footprints ,disable-automatic-footprints
+                :description ,description))

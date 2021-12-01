@@ -28,7 +28,9 @@
 ;; in the web interface at http://localhost:8000/
 (activate-monitor trace-fcg)
 
-;; We will test the frame extracor using the base model for English
+;; We will test the frame extracor using the base model for English. You can
+;; always reset it as follows:
+(setf *fcg-english* (make-english-base-model-cxns))
 ;; from FCG hybrids on the following simple sentence:
 (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
 
@@ -49,6 +51,12 @@
 ;; 2.Using semantic frames in constructions 
 ;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+;; In order to display both the construction and the transient structure 
+;; correctly, some behind-the-scenes feature-type definitions need to be set.
+;; This is why we recommend to use the macro def-frame-cxn that works in 
+;; exactly the same way as def-fcg-cxn, but which will take care of these 
+;; feature-type definitions for  you.
+
 ;; 2.a) Automatic Frame Expansion
 ;;; ----------------------------------------------------------------------------
 ;; If you introduce a semantic frame for the first time, e.g. as part of 
@@ -57,14 +65,14 @@
 ;; and FCG will automatically expand that into an appropriate feature-set:
 
 ; (sem-frame (causation))
-(def-fcg-cxn caused-lex
-             ((?caused-unit
-               (sem-frame (causation)))
-              <-
-               (?caused-unit
-                --
-                (HASH form ((string ?caused-unit "caused")))))
-             :cxn-inventory *fcg-english*)
+(def-frame-cxn caused-lex
+               ((?caused-unit
+                 (sem-frame (causation)))
+                <-
+                (?caused-unit
+                 --
+                 (HASH form ((string ?caused-unit "caused")))))
+               :cxn-inventory *fcg-english*)
 ;; Compare what you see in the construction with the result in the transient structure:
 ;; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
 
@@ -85,15 +93,15 @@
 ; (get-frame-elements 'causation)
 
 ;; In this example we will link the frame elements to the meaning of the utterance:
-(def-fcg-cxn caused-lex
-             ((?caused-unit
-               (sem-frame (causation ?x ?y)))
-              <-
-               (?caused-unit
-                (HASH meaning ((cause ?ev ?x ?y)))
-                --
-                (HASH form ((string ?caused-unit "caused")))))
-             :cxn-inventory *fcg-english*)
+(def-frame-cxn caused-lex
+               ((?caused-unit
+                 (sem-frame (causation ?x ?y)))
+                <-
+                (?caused-unit
+                 (HASH meaning ((cause ?ev ?x ?y)))
+                 --
+                 (HASH form ((string ?caused-unit "caused")))))
+               :cxn-inventory *fcg-english*)
 ;; Compare what you see in the construction with the result in the transient structure:
 ;; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
 
@@ -102,18 +110,17 @@
 ;; a variable. For example, (causation ?y) cannot be used for linking ?y to the 
 ;; EFFECT of the causation frame because EFFECT is the second frame element. Indeed,
 ;; ?y would be linked to the CAUSE of the causation frame:
-(def-fcg-cxn caused-lex
-             ((?caused-unit
-               (sem-frame (causation ?y)))
-              <-
-               (?caused-unit
-                (HASH meaning ((cause ?ev ?x ?y)))
-                --
-                (HASH form ((string ?caused-unit "caused")))))
-             :cxn-inventory *fcg-english*)
+(def-frame-cxn caused-lex
+               ((?caused-unit
+                 (sem-frame (causation ?y)))
+                <-
+                (?caused-unit
+                 (HASH meaning ((cause ?ev ?x ?y)))
+                 --
+                 (HASH form ((string ?caused-unit "caused")))))
+               :cxn-inventory *fcg-english*)
 ;; Compare what you see in the construction with the result in the transient structure:
 ;; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
-
 
 ;; 2.c) Defining the frame manually (or partially manually)
 ;;; ----------------------------------------------------------------------------
@@ -131,18 +138,17 @@
 ;; Here, you have to be carful thought to use the CORRECT names of the 
 ;; frame elements.
 ;; Here is an example:
-(def-fcg-cxn caused-lex
-             ((?caused-unit
-               (sem-frame (causation
-                           (effect ?y))))
-              <-
-               (?caused-unit
-                (HASH meaning ((cause ?ev ?x ?y)))
-                --
-                (HASH form ((string ?caused-unit "caused")))))
-             :cxn-inventory *fcg-english*)
+(def-frame-cxn caused-lex
+               ((?caused-unit
+                 (sem-frame (causation
+                             (effect ?y))))
+                <-
+                (?caused-unit
+                 (HASH meaning ((cause ?ev ?x ?y)))
+                 --
+                 (HASH form ((string ?caused-unit "caused")))))
+               :cxn-inventory *fcg-english*)
 ; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
-
 
 ;; 3. An example
 ;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -150,28 +156,30 @@
 ;; of a slot are bound to phrasal units. The goal of such an extractor is to 
 ;; identify sequences in the utterance that fill the frame element slots of 
 ;; the semantic frame.
-(def-fcg-cxn caused-lex
-             ((?caused-unit
-               (sem-frame (causation)))
-              <-
-               (?caused-unit
-                --
-                (HASH form ((string ?caused-unit "caused")))))
-             :cxn-inventory *fcg-english*)
 
-(def-fcg-cxn active-transitive-causation-frame
-             (<-
-              (?root-verb
-               --
-               (functional-structure (subject ?subject)
-                                     (direct-object ?object))
-               (sem-frame (causation ?subject-NP ?object-NP)))
-              (?subject
-               --
-               (parent ?subject-NP))
-              (?object
-               --
-               (parent ?object-NP)))
-             :cxn-inventory *fcg-english*)
+;; We first introduce the frame using automatic expansion:
+(def-frame-cxn caused-lex
+               ((?caused-unit
+                 (sem-frame (causation)))
+                <-
+                (?caused-unit
+                 --
+                 (HASH form ((string ?caused-unit "caused")))))
+               :cxn-inventory *fcg-english*)
+
+;; Now we use variable equalities for linking the frame:
+(def-frame-cxn active-transitive-causation-frame
+               (<-
+                (?root-verb
+                 --
+                 (functional-structure (subject ?subject)
+                                       (direct-object ?object))
+                 (sem-frame (causation ?subject-NP ?object-NP)))
+                (?subject
+                 --
+                 (parent ?subject-NP))
+                (?object
+                 --
+                 (parent ?object-NP)))
+               :cxn-inventory *fcg-english*)
 ; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
-
