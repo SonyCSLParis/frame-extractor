@@ -15,6 +15,8 @@
 ;;; ----------------------------------------------------------------------------
 
 ;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;; TUTORIAL 1: PHRASE-BASED SEMANTIC FRAMES
+;; ----------------------------------------------------------------------------
 ;; This file shows how to use semantic frames in constructions.
 ;; We will illustrate the approach using the base model for English from 
 ;; fcg-hybrids.
@@ -168,18 +170,67 @@
                :cxn-inventory *fcg-english*)
 
 ;; Now we use variable equalities for linking the frame:
-(def-frame-cxn active-transitive-causation-frame
-               (<-
-                (?root-verb
-                 --
-                 (functional-structure (subject ?subject)
-                                       (direct-object ?object))
-                 (sem-frame (causation ?subject-NP ?object-NP)))
-                (?subject
-                 --
-                 (parent ?subject-NP))
-                (?object
-                 --
-                 (parent ?object-NP)))
-               :cxn-inventory *fcg-english*)
+(def-frame-cxn 
+ active-transitive-causation-frame
+ (<-
+  (?root-verb
+   --
+   (functional-structure (subject ?subject)
+                         (direct-object ?object))
+   (sem-frame (causation ?subject-NP ?object-NP)))
+  (?subject
+   --
+   (parent ?subject-NP))
+  (?object
+   --
+   (parent ?object-NP)))
+ :cxn-inventory *fcg-english*)
 ; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
+
+
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;; TUTORIAL 2: MEANING-BASED SEMANTIC FRAMES
+;; ----------------------------------------------------------------------------
+;; This file shows how to use semantic frames as part of the menaing of
+;; an utterance. We will illustrate the approach using the base model for English 
+;; from fcg-hybrids.
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+;; 1/ Resetting the base model:
+(setf *fcg-english* (make-english-base-model-cxns))
+
+;; 2/ No additional modifications to the transient structure are needed, so 
+;;    we can immediately start implementing our grammar.
+
+(def-fcg-cxn caused-lex
+             ((?caused-unit
+               (referent ?ev)
+               (arg-struct (actor ?x)
+                           (undergoer ?y)))
+              <-
+              (?caused-unit
+               (HASH meaning ((causation ?ev)
+                              (cause ?ev ?x)
+                              (effect ?ev ?y)))
+               -- 
+               (HASH form ((string ?caused-unit "caused")))))
+             :cxn-inventory *fcg-english*)
+
+(def-fcg-cxn active-transitive-cxn
+             (<-
+              (?root-verb
+               (arg-struct (actor ?x)
+                           (undergoer ?y))
+               --
+               (functional-structure (subject ?subject)
+                                     (direct-object ?object)))
+              (?subject
+               (referent ?x)
+               --
+               (parent ?subject-NP))
+              (?object
+               (referent ?y)
+               --
+               (parent ?object-NP)))
+             :cxn-inventory *fcg-english*)
+;; (comprehend "The wind caused damage" :cxn-inventory *fcg-english*)

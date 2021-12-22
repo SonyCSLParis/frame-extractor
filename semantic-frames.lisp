@@ -18,4 +18,4 @@
 
 (def-sem-frame causation (cause effect)
                :documentation "A CAUSE (sometimes an ACTOR) causes an EFFECT (sometimes an AFFECTED), 
- i.e. some event is responsible for the occurrence of another event.")
+                               i.e. some event is responsible for the occurrence of another event.")

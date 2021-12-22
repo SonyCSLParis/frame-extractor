@@ -29,19 +29,37 @@
 
 ;; Helper functions
 (defun get-frame-def (name)
+  "Retrieve a semantic frame definition."
   (gethash name *frame-library*))
 
 (defun get-frame-elements (name)
-  (frame-def-frame-elements (if (symbolp name) (get-frame-def name) name)))
+  "Retrieve frame elements of a frame definition."
+  (let ((definition (if (symbolp name)
+                      (get-frame-def name)
+                      name)))
+    (when definition
+      (frame-def-frame-elements definition))))
 
 (defun get-frame-evokes (name)
-  (frame-def-evokes (if (symbolp name) (get-frame-def name) name)))
+  "Retrieve which frames are evoked by a frame."
+  (let ((definition (if (symbolp name)
+                      (get-frame-def name)
+                      name)))
+    (frame-def-evokes definition)))
 
 (defun get-frame-documentation (name)
-  (frame-def-documentation (if (symbolp name)  (get-frame-def name) name)))
+  "Retrieve the documentation of a semantic frame."
+  (let ((definition (if (symbolp name)
+                      (get-frame-def name)
+                      name)))
+    (frame-def-documentation definition)))
 
 (defun get-frame-url (name)
-  (frame-def-url (if (symbolp name)  (get-frame-def name) name)))
+  "Retrieve the URL associated with a semantic frame."
+  (let ((definition (if (symbolp name)
+                      (get-frame-def name)
+                      name)))
+    (frame-def-url definition)))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Semantic Frame Classes and Subclasses
@@ -57,7 +75,7 @@
    (evoked-by :initarg :evoked-by :accessor evoked-by
               :documentation "Contains the string that evoked the semantic frame.")
    (evokes :initarg :evokes :accessor evokes :initform nil
-           :documentation "A semantic frame may evoke a more abstract semantic frame."))   
+           :documentation "A semantic frame may evoke a more abstract semantic frame."))
   (:documentation "A base class for storing semantic frames and visualizing them in the web interface."))
 
 ;;; ----------------------------------------------------------------------------

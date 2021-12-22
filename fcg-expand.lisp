@@ -41,7 +41,7 @@
                                collect (if filler (list fe filler) (list fe (make-var 'filler)))))))))
     (cons '==1 features)))
 
-(export '(activate-frame-extractor sem-frame def-frame-cxn))
+(export '(activate-frame-extractor sem-frame def-frame-cxn get-frame-feature))
 
 (defun activate-frame-extractor (&key (cxn-inventory *fcg-constructions*)
                                       (frame-feature 'sem-frame))
@@ -54,9 +54,11 @@
             (substitute new-type-def old-type-def (feature-types cxn-inventory) :test #'equal))
       (push new-type-def (feature-types cxn-inventory)))))
 
+(defun get-frame-feature (cxn-inventory)
+  (or (get-configuration cxn-inventory :frame-feature) 'sem-frame))
 
 ;; Helper macro
-(defmacro  def-frame-cxn (cxn-name fs &key (cxn-inventory '*fcg-constructions*)
+(defmacro def-frame-cxn (cxn-name fs &key (cxn-inventory '*fcg-constructions*)
                                    (cxn-set 'cxn) (score 0.5)
                                    (feature-types nil) (attributes nil)
                                    (disable-automatic-footprints nil) 

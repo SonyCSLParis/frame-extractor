@@ -18,12 +18,11 @@
 
 (export '(extract-semantic-frames))
 
+(defgeneric extract-semantic-frames (utterance key &key cxn-inventory &allow-other-keys))
 
-(defgeneric extract-semantic-frames (utterance key &key cxn-inventory key  &allow-other-keys))
-
+;; 1/ PHRASE-BASED:
 ;; Method that only cares about the strings. This relies on the use of BOUNDARIES.
 ;; ----------------------------------------------------------------------------------------------------------------------------
-
 (defun lexical-boundary-p (boundary)
   (= 1 (- (third boundary) (second boundary))))
 
@@ -45,16 +44,19 @@
     (format nil "~{~a~^ ~}" strings)))
 
 (defmethod extract-semantic-frames ((utterance string)
-                                    (key (eql :sem-frame))
+                                    (key (eql :phrase-based))
                                     &key cxn-inventory
                                     frame-dev-monitor &allow-other-keys)
   (declare (ignore key))
   (multiple-value-bind (meaning final-node)
       (comprehend utterance :cxn-inventory (or cxn-inventory *fcg-constructions*))
     (declare (ignore meaning))
-    (let* ((transient-units (fcg-get-transient-unit-structure final-node))
+    (let* (;; 1. Get the feature name that is used for representing semantic frames.  
+           (frame-feature (get-frame-feature (or cxn-inventory *fcg-constructions*)))
+           (transient-units (fcg-get-transient-unit-structure final-node))
+           ;; 2. Retrieve the frames that are evoked in these features and instantiate them.
            (evoked-frames (loop for unit in transient-units
-                                for sem-frame = (unit-feature-value unit 'sem-frame)
+                                for sem-frame = (unit-feature-value unit frame-feature)
                                 when sem-frame
                                 collect (cons (unit-name unit) sem-frame)))
            (sem-frames (loop for evoked-frame in evoked-frames
@@ -73,4 +75,30 @@
         (loop for sem-frame in sem-frames
               do (add-element (make-html sem-frame :expand-initially t))))
       sem-frames)))
-;; (extract-semantic-frames "The wind caused damage." :sem-frame :cxn-inventory *fcg-english* :frame-dev-monitor t)
+;(extract-semantic-frames "The wind caused damage." :phrase-based :cxn-inventory *fcg-english* :frame-dev-monitor t) 
+
+;; 2/ MEANING-BASED:
+;; Method for grammars that assume that semantic frames are represented as part of the meaning of the utterance.
+;; ----------------------------------------------------------------------------------------------------------------------------
+(defmethod extract-semantic-frames ((utterance string)
+                                    (key (eql :meaning-based))
+                                    &key cxn-inventory frame-dev-monitor
+                                    &allow-other-keys)
+  (declare (ignore key))
+  (multiple-value-bind (meaning final-node)
+      (comprehend utterance :cxn-inventory (or cxn-inventory *fcg-constructions*))
+    (let* ((frame-types (loop for predicate in meaning
+                              for frame-elements = (get-frame-elements (first predicate))
+                              when frame-elements
+                              collect (list predicate frame-elements)))
+           (sem-frames (loop for frame-type in frame-types
+                             for var = (second (first frame-type))
+                             collect (loop for fe in (second frame-types)
+                                           for element = (loop for predicate in meaning
+                                                               when (and (unify fe (first predicate) +no-bindings+)
+                                                                         (eql (second predicate) var))
+                                                               collect predicate)
+                                           append element))))
+      (list frame-types sem-frames))))
+;; (extract-semantic-frames "The wind caused damage." :meaning-based :cxn-inventory *fcg-english*)
+;; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)

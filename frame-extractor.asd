@@ -32,5 +32,6 @@
   :components ((:file "class-and-macros")
                (:file "semantic-frames")
                (:file "fcg-expand")
-               (:file "extract-frames"))
+               (:file "extract-frames")
+               (:file "export-frames"))
   :description "Library of semantic frame  extractors for hybrid FCG-grammars.")
