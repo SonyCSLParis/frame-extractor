@@ -18,8 +18,6 @@
 
 (export '(extract-semantic-frames))
 
-(defgeneric extract-semantic-frames (utterance key &key cxn-inventory &allow-other-keys))
-
 ;; Helper functions:
 ;; -----------------
 (defun format-units-as-string (unit-names units)
@@ -27,18 +25,34 @@
   (format nil "~{~a~^ ~}"
           (mapcar #'(lambda(unit-name)
                       (retrieve-string-for-unit unit-name units))
-                  unit-names)))
+                  (flatten unit-names))))
 
-(defun apply-procedural-attachment (s-expression units)
+(defgeneric frame-extractor-procedure (procedure body units))
+
+(defmethod frame-extractor-procedure ((procedure (eql 'unit-append))
+                                      (body list)
+                                      (units list))
+  (declare (ignore procedure))
+  (format-units-as-string body units))
+
+(defmethod frame-extractor-procedure ((procedure (eql 'unit-remove))
+                                      (body list)
+                                      (units list))
+  (declare (ignore procedure))
+  (format-units-as-string (remove (first body) (second body)) units))
+
+(defmethod frame-extractor-procedure ((procedure t)
+                                      (body list)
+                                      (units list))
+  (declare (ignore units))
+  `(,procedure ,@body))
+ 
+(defun apply-frame-extractor-procedure (s-expression units)
   "Some procedure needs to be executed before fetching the strings."
   (let ((procedure (first s-expression))
         (body (loop for x in (rest s-expression)
-                    collect (if (symbolp x) x (apply-procedural-attachment x units)))))
-    (case procedure
-      (unit-append (format-units-as-string body units))
-      (unit-remove (format-units-as-string (remove (first body) (second body)) units))
-      (t
-       s-expression))))
+                    collect (if (symbolp x) x (apply-frame-extractor-procedure x units)))))
+    (frame-extractor-procedure procedure body units)))
 
 ;; 1/ PHRASE-BASED:
 ;; Method that only cares about the strings. This relies on the use of BOUNDARIES.
@@ -48,7 +62,7 @@
 
 (defun retrieve-string-for-unit (unit-name units)
   (cond ((variable-p unit-name) "UNK")
-        ((listp unit-name) (apply-procedural-attachment unit-name units))
+        ((listp unit-name) (apply-frame-extractor-procedure unit-name units))
         ((stringp unit-name) unit-name)
         (t
          (let* ((boundaries (fcg-get-boundaries units))
