@@ -33,5 +33,6 @@
                (:file "semantic-frames")
                (:file "fcg-expand")
                (:file "extract-frames")
-               (:file "export-frames"))
+               (:file "export-frames")
+               (:file "load-models"))
   :description "Library of semantic frame  extractors for hybrid FCG-grammars.")
