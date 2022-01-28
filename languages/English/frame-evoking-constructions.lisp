@@ -297,6 +297,7 @@
                (<-
                 (?result
                  (sem-frame (causation
+                             (cause ?cause-phrase)
                              (effect ?some-parent)))
                  (functional-structure
                   (direct-object ?object))
@@ -437,8 +438,8 @@
                 (?np
                  --
                  (syn-cat (phrase-type noun-phrase))
-                 (constituents (?causative ?head ?pp))
-                 (hash form ((meets ?head ?pp ?np))))
+                 (constituents (?causative ?head))
+                 (hash form ((meets ?head ?pp ?scope))))
                 (?pp
                  --
                  (syn-cat (phrase-type prepositional-phrase))

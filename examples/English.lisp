@@ -17,8 +17,14 @@
 (in-package :fcg)
 
 (load-base-model :english)
+(activate-monitor trace-fcg)
 
 (extract-semantic-frames "Many linguists, because of their hatred of Chomsky, avoid to formalize their work."
+                         :phrase-based
+                         :cxn-inventory *fcg-english*
+                         :frame-dev-monitor t)
+
+(extract-semantic-frames "What causes climate change?"
                          :phrase-based
                          :cxn-inventory *fcg-english*
                          :frame-dev-monitor t)
