@@ -20,6 +20,9 @@
   (make-pathname :directory (pathname-directory (or *load-truename*
 						    *compile-file-truename*))))
 
+(dolist (pathname '("frame-extractor-models/Italian/ife.asd")) ; Italian
+  (load (merge-pathnames pathname *frame-extractor-pathname*)))
+
 (defun load-base-model (language &key (perform-tests nil))
   "Load the base model for a particular language."
   (multiple-value-bind (the-language cxn-inventory)

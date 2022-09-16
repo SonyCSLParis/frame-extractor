@@ -26,8 +26,7 @@
                :xmls
                :nlp-tools
                :fcg-hybrids
-               :plot-raw-data
-               :category-hierarchies)
+               :plot-raw-data)
   :serial t
   :components ((:file "class-and-macros")
                (:file "semantic-frames")
