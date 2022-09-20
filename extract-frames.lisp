@@ -157,3 +157,103 @@
 ;; (extract-semantic-frames "The wind caused damage." :meaning-based :cxn-inventory *fcg-english* :frame-dev-monitor t)
 
 ;; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
+
+;; 3/ DEPENDENCY-BASED:
+;; Method for grammars that use dependency parsing for retrieving phrases.
+;; ----------------------------------------------------------------------------------------------------------------------------
+
+(defun get-all-dependents (lst units)
+  (cond ((null lst) nil)
+        ((variable-p (first lst)) (get-all-dependents (rest lst) units))
+        (t
+         (let* ((unit-name (first lst))
+                (full-unit (assoc unit-name units))
+                (dependents (unit-feature-value full-unit 'dependents)))
+           (cons unit-name
+                 (get-all-dependents (append dependents (rest lst)) units))))))
+
+(defgeneric collect-frame-elements-through-dependency-tree 
+    (evoking-unit frame-elements units mode))
+
+(defmethod collect-frame-elements-through-dependency-tree ((evoking-unit symbol)
+                                                           (frame-elements list)
+                                                           (units list)
+                                                           (mode t))
+  (let* ((frame-element-units (loop for fe in frame-elements
+                                    collect `(,(first fe) 
+                                              ,(if (variable-p (rest fe))
+                                                 "UNK"
+                                                 (get-all-dependents 
+                                                  (rest fe) units)))))
+         (filtered-units 
+          (loop for fe-unit in frame-element-units
+                collect `(,(first fe-unit)
+                          ,(if (stringp (second fe-unit))
+                             (second fe-unit)
+                             (let ((dependent-subset
+                                    (loop for other-fe-unit in frame-element-units
+                                          when (and (not (equal fe-unit other-fe-unit))
+                                                    (subsetp (second other-fe-unit)
+                                                             (second fe-unit)))
+                                            append (second other-fe-unit))))
+                               (loop for unit-name in (second fe-unit)
+                                     unless (or (eql unit-name evoking-unit)
+                                                (member unit-name dependent-subset))
+                                       collect unit-name))))))
+         (boundaries (fcg-get-boundaries units))
+         (ordered-units (loop for filtered-unit in filtered-units
+                              for role = (first filtered-unit)
+                              for units-with-boundaries 
+                                = (if (stringp (second filtered-unit))
+                                    (second filtered-unit)
+                                    (loop for unit-name in (second filtered-unit)
+                                          collect (assoc unit-name boundaries)))
+                              for the-ordered-units = (sort units-with-boundaries
+                                                            #'< :key #'second)
+                              collect (list role (mapcar #'first the-ordered-units)))))
+    (loop for ordered-unit in ordered-units
+          collect (list (first ordered-unit)
+                        (if (stringp (second ordered-unit))
+                          (second ordered-unit)
+                          (format nil "~{~a~^ ~}"
+                                  (loop for unit-name in (second ordered-unit)
+                                        collect 
+                                          (if (stringp unit-name)
+                                            unit-name
+                                            (fcg::retrieve-string-for-unit unit-name units)))))))))
+
+(defmethod extract-semantic-frames ((utterance string)
+                                    (key (eql :dependency-based))
+                                    &key cxn-inventory
+                                    frame-dev-monitor &allow-other-keys)
+  (declare (ignore key))
+  (multiple-value-bind (meaning final-node)
+      (comprehend utterance :cxn-inventory (or cxn-inventory *fcg-constructions*))
+    (declare (ignore meaning))
+    (let* (;; 1. Get the feature name that is used for representing semantic frames.  
+           (frame-feature (get-frame-feature (or cxn-inventory *fcg-constructions*)))
+           (transient-units (fcg-get-transient-unit-structure final-node))
+           ;; 2. Retrieve the frames that are evoked in these features and instantiate them.
+           (evoked-frames (loop for unit in transient-units
+                                for sem-frame = (unit-feature-value unit frame-feature)
+                                when sem-frame
+                                collect (cons (unit-name unit) sem-frame)))
+           (sem-frames 
+            (loop for evoked-frame in evoked-frames
+                  for frame-type = (unit-feature-value evoked-frame 'frame-type)
+                  for frame-elements = 
+                    (loop for feature in (unit-body evoked-frame)
+                          unless (eql 'frame-type (feature-name feature))
+                            collect feature)
+                  when (get-frame-def frame-type)
+                    collect (make-instance frame-type
+                                           :evoked-by (fcg::retrieve-string-for-unit 
+                                                       (unit-name evoked-frame) transient-units)
+                                           :frame-elements 
+                                           (collect-frame-elements-through-dependency-tree
+                                            (unit-name evoked-frame) frame-elements transient-units t)))))
+      ;; To be replaced by a real web monitor.
+      (when frame-dev-monitor
+        (loop for sem-frame in sem-frames
+              do (add-element (make-html sem-frame :expand-initially t))))
+      sem-frames)))
