@@ -57,22 +57,28 @@
 ;; 1/ PHRASE-BASED:
 ;; Method that only cares about the strings. This relies on the use of BOUNDARIES.
 ;; ----------------------------------------------------------------------------------------------------------------------------
-(defun lexical-boundary-p (boundary)
-  (= 1 (- (third boundary) (second boundary))))
+(defun lexical-boundary-p (boundary units)
+  (if (= 1 (- (third boundary) (second boundary)))
+    (let ((unit (assoc (unit-name boundary) units)))
+      (not (unit-feature-value unit 'constituents)))
+    nil))
+
+(defun retrieve-lexical-boundaries-for-unit (unit-name units)
+  (let* ((boundaries (fcg-get-boundaries units))
+         (boundary-spec (assoc unit-name boundaries)))
+    (loop for boundary in boundaries
+          when (and (lexical-boundary-p boundary units)
+                    (>= (second boundary) (second boundary-spec))
+                    (<= (third boundary) (third boundary-spec)))
+            collect boundary)))
 
 (defun retrieve-string-for-unit (unit-name units)
   (cond ((variable-p unit-name) "UNK")
         ((listp unit-name) (apply-frame-extractor-procedure unit-name units))
         ((stringp unit-name) unit-name)
         (t
-         (let* ((boundaries (fcg-get-boundaries units))
-                (boundary-spec (assoc unit-name boundaries))
-                (strings-in-root (extract-string (get-root units)))
-                (lexical-boundaries (loop for boundary in boundaries
-                                          when (and (= 1 (- (third boundary) (second boundary)))
-                                                    (>= (second boundary) (second boundary-spec))
-                                                    (<= (third boundary) (third boundary-spec)))
-                                          collect boundary))
+         (let* ((strings-in-root (extract-string (get-root units)))
+                (lexical-boundaries (retrieve-lexical-boundaries-for-unit unit-name units))
                 (strings (loop for boundary in lexical-boundaries
                                for string-spec = (let ((strng (find (first boundary) strings-in-root :key #'second)))
                                                    (if strng (list strng)
@@ -80,6 +86,50 @@
                                when string-spec
                                append (mapcar #'third string-spec))))
            (format nil "~{~a~^ ~}" strings)))))
+
+(defun filter-evoker (evoker-string evoked-string)
+  (let ((l (length evoker-string)))
+  (cond
+   ((or (not (stringp evoked-string))
+        (string= evoked-string "UNK")) evoked-string)
+   ((string= evoker-string (subseq evoked-string 0 l))
+    (subseq evoked-string (1+ l)))
+   ((string= evoker-string (subseq (reverse evoked-string) 0 l))
+    (reverse (subseq (reverse evoked-string) (1+ l))))
+   (t
+    evoked-string))))
+; (filter-evoker "because" "UNK")
+; (filter-evoker "because" '?test)
+; (filter-evoker "because" "because the earth is warming")
+; (filter-evoker "because" "the earth is warming because")
+; (filter-evoker "because" "the earth is warming")
+
+(defun filter-overlapping-units (evoked-unit-name frame-elements units)
+  (let* (;; Always filter the frame-evoking words:
+         (evoked-unit (assoc evoked-unit-name units))
+         (evoked-unit-names (loop for form-predicate in (unit-feature-value evoked-unit 'form)
+                                  when (eql (first form-predicate) 'string)
+                                    collect (second form-predicate)))
+         ;; Get the word-level units for each frame element without the evoking units:
+         (frame-element-units (loop for fe in frame-elements
+                                    collect (if (variable-p (second fe))
+                                              nil
+                                              (remove-if #'(lambda(x)
+                                                             (member x evoked-unit-names))
+                                                         (mapcar #'first (retrieve-lexical-boundaries-for-unit (second fe) units))))))
+         (filtered-frame-element-and-units (loop for role in (mapcar #'first frame-elements)
+                                                 for fe-units in frame-element-units
+                                                 for subset-units = (loop for other-set in (remove fe-units frame-element-units :test #'equal)
+                                                                          when (subsetp other-set fe-units)
+                                                                            append other-set)
+                                                                              
+                                                 collect (list role (loop for unit-name in fe-units
+                                                                            unless (member unit-name subset-units)
+                                                                            collect unit-name)))))
+    (loop for fe in filtered-frame-element-and-units
+          collect (list (first fe)
+                        (format nil "~{~a~^ ~}" (loop for unit-name in (second fe)
+                                                      collect (retrieve-string-for-unit unit-name units)))))))
 
 (defmethod extract-semantic-frames ((utterance string)
                                     (key (eql :phrase-based))
@@ -103,11 +153,12 @@
                                                         unless (eql 'frame-type (feature-name feature))
                                                         collect feature)
                              when (get-frame-def frame-type)
-                             collect (make-instance frame-type
-                                                    :evoked-by (retrieve-string-for-unit (unit-name evoked-frame) transient-units)
-                                                    :frame-elements (loop for fe in frame-elements
-                                                                          collect (list (first fe)
-                                                                                        (retrieve-string-for-unit (second fe) transient-units)))))))
+                             collect (let ((evoked-by (retrieve-string-for-unit (unit-name evoked-frame) transient-units)))
+                                       (make-instance frame-type
+                                                      :evoked-by evoked-by
+                                                      :frame-elements (filter-overlapping-units (unit-name evoked-frame)
+                                                                                                frame-elements
+                                                                                                transient-units))))))
       ;; To be replaced by a real web monitor.
       (when frame-dev-monitor
         (loop for sem-frame in sem-frames

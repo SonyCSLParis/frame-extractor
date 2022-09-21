@@ -16,7 +16,7 @@
 
 (in-package :fcg)
 
-(export '(causation))
+(export '(causation cause effect))
 
 (def-sem-frame causation (cause effect)
                :documentation "A CAUSE (sometimes an ACTOR) causes an EFFECT (sometimes an AFFECTED), 
