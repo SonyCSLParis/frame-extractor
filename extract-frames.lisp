@@ -13,33 +13,16 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 ;;=========================================================================
-
 (in-package :fcg)
 
 (export '(extract-semantic-frames))
 
-;; Helper functions:
-;; -----------------
-(defun format-units-as-string (unit-names units)
-  "String-append the string associated with a unit, separating them by a white space."
-  (format nil "~{~a~^ ~}"
-          (mapcar #'(lambda(unit-name)
-                      (retrieve-string-for-unit unit-name units))
-                  (flatten unit-names))))
+;; ------------------------------------------------------------------------
+;; Procedural attachment:
+;; ------------------------------------------------------------------------
+;; See specific methods at the end of the file.
 
 (defgeneric frame-extractor-procedure (procedure body units))
-
-(defmethod frame-extractor-procedure ((procedure (eql 'unit-append))
-                                      (body list)
-                                      (units list))
-  (declare (ignore procedure))
-  (format-units-as-string body units))
-
-(defmethod frame-extractor-procedure ((procedure (eql 'unit-remove))
-                                      (body list)
-                                      (units list))
-  (declare (ignore procedure))
-  (format-units-as-string (remove (first body) (second body)) units))
 
 (defmethod frame-extractor-procedure ((procedure t)
                                       (body list)
@@ -54,8 +37,12 @@
                     collect (if (symbolp x) x (apply-frame-extractor-procedure x units)))))
     (frame-extractor-procedure procedure body units)))
 
+;; ------------------------------------------------------------------------
+;; Extraction methods:
+;; ------------------------------------------------------------------------
+
 ;; 1/ PHRASE-BASED:
-;; Method that only cares about the strings. This relies on the use of BOUNDARIES.
+;; Method that only cares about the strings. This relies on the use of BOUNDARIES and CONSTITUENTS
 ;; ----------------------------------------------------------------------------------------------------------------------------
 (defun lexical-boundary-p (boundary units)
   (if (= 1 (- (third boundary) (second boundary)))
@@ -64,13 +51,15 @@
     nil))
 
 (defun retrieve-lexical-boundaries-for-unit (unit-name units)
-  (let* ((boundaries (fcg-get-boundaries units))
-         (boundary-spec (assoc unit-name boundaries)))
-    (loop for boundary in boundaries
-          when (and (lexical-boundary-p boundary units)
-                    (>= (second boundary) (second boundary-spec))
-                    (<= (third boundary) (third boundary-spec)))
-            collect boundary)))
+  (if (listp unit-name) ; Procedural attachhment requested
+    (apply-frame-extractor-procedure unit-name units)
+    (let* ((boundaries (fcg-get-boundaries units))
+           (boundary-spec (assoc unit-name boundaries)))
+      (loop for boundary in boundaries
+            when (and (lexical-boundary-p boundary units)
+                      (>= (second boundary) (second boundary-spec))
+                      (<= (third boundary) (third boundary-spec)))
+              collect boundary))))
 
 (defun retrieve-string-for-unit (unit-name units)
   (cond ((variable-p unit-name) "UNK")
@@ -308,3 +297,34 @@
         (loop for sem-frame in sem-frames
               do (add-element (make-html sem-frame :expand-initially t))))
       sem-frames)))
+
+;; ------------------------------------------------------------------------
+;; Procedural Attachment Methods
+;; ------------------------------------------------------------------------
+
+(export '(unit-append))
+
+(defmethod frame-extractor-procedure ((procedure (eql 'unit-append))
+                                      (body list)
+                                      (units list))
+  (declare (ignore procedure))
+  (loop for unit-name in body
+        append (if (listp unit-name)
+                 (apply-frame-extractor-procedure unit-name units)
+                 (retrieve-lexical-boundaries-for-unit unit-name units))))
+
+;; Deprecated code:
+#|
+(defun format-units-as-string (unit-names units)
+  "String-append the string associated with a unit, separating them by a white space."
+  (format nil "~{~a~^ ~}"
+          (mapcar #'(lambda(unit-name)
+                      (retrieve-string-for-unit unit-name units))
+                  (flatten unit-names))))
+
+(defmethod frame-extractor-procedure ((procedure (eql 'unit-remove))
+                                      (body list)
+                                      (units list))
+  (declare (ignore procedure))
+  (format-units-as-string (remove (first body) (second body)) units))
+|#

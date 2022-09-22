@@ -20,7 +20,8 @@
   (make-pathname :directory (pathname-directory (or *load-truename*
 						    *compile-file-truename*))))
 
-(dolist (pathname '("frame-extractor-models/Italian/ife.asd")) ; Italian
+(dolist (pathname '("frame-extractor-models/Italian/ife.asd" ; Italian
+                    "frame-extractor-models/English/efe.asd")) ; English
   (load (merge-pathnames pathname *frame-extractor-pathname*)))
 
 (defun load-base-model (language &key (perform-tests nil))
@@ -44,4 +45,3 @@
                                             :type "lisp")
                              *frame-extractor-pathname*)))
     cxn-inventory))
-          
