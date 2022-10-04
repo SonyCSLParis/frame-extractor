@@ -187,6 +187,8 @@
  :cxn-inventory *fcg-english*)
 ; (comprehend "The wind caused damage." :cxn-inventory *fcg-english*)
 
+;; Helper function to test extracting the semantic frame:
+; (extract-semantic-frames "The wind caused damage." :phrase-based :cxn-inventory *fcg-english* :frame-dev-monitor t)
 
 ;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;; TUTORIAL 2: MEANING-BASED SEMANTIC FRAMES
@@ -234,3 +236,38 @@
                (parent ?object-NP)))
              :cxn-inventory *fcg-english*)
 ;; (comprehend "The wind caused damage" :cxn-inventory *fcg-english*)
+
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;; TUTORIAL 3: DEPENDENCY-BASED SEMANTIC FRAMES
+;; ----------------------------------------------------------------------------
+;; This file shows how to extract semantic frames as phrases but using a 
+;; dependency parse as the basis. We will illustrate the approach using the 
+;; base model for French from fcg-hybrids.
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+;; We activate the frame extractor code for *fcg-french*:
+(activate-frame-extractor :cxn-inventory *fcg-french*)
+
+(def-fcg-cxn provoque-lex
+             ((?provoque-unit
+               (sem-frame (causation)))
+              <-
+              (?provoque-unit
+               -- 
+               (HASH form ((string ?provoque-unit "provoque")))))
+             :cxn-inventory *fcg-french*)
+
+(def-frame-cxn active-transitive-causation-frame
+ (<-
+  (?root-verb
+   --
+   (functional-structure (subject ?subject)
+                         (direct-object ?object))
+   (sem-frame (causation ?subject ?object))))
+ :cxn-inventory *fcg-french*)
+
+;; Testing:
+(extract-semantic-frames "Le changement climatique provoque des orages plus fortes." 
+                         :dependency-based
+                         :cxn-inventory *fcg-french*
+                         :frame-dev-monitor t)
